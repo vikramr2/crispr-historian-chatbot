@@ -1,6 +1,6 @@
-import ollama
-import streamlit as st
-from openai import OpenAI
+import ollama                           # type: ignore
+import streamlit as st                  # type: ignore    
+from openai import OpenAI               # type: ignore
 from utilities.icon import page_icon
 
 st.set_page_config(
