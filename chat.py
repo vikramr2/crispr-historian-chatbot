@@ -98,7 +98,7 @@ def main():
     if not available_models:
         st.warning("You have not pulled any model from Ollama yet!", icon="⚠️")
         if st.button("Go to settings to download a model"):
-            st.page_switch("pages/02_⚙️_Settings.py")
+            st.page_switch("pages/settings.py")
         return
 
     selected_model = st.selectbox(
