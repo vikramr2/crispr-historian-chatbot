@@ -39,7 +39,30 @@ streamlit run chat.py --server.address=0.0.0.0 --server.port=8501
 
 Navigate to the URL provided by Streamlit in your browser to interact with the app.
 
-**NB: Make sure you have downloaded [Ollama](https://ollama.com/) to your system.**
+### Installing Ollama without root
+```bash
+# Create a local bin directory
+mkdir -p $HOME/.local/bin
+
+# Download the binary
+curl -L https://github.com/ollama/ollama/releases/latest/download/ollama-linux-amd64 -o $HOME/.local/bin/ollama
+
+# Make it executable
+chmod +x $HOME/.local/bin/ollama
+
+# Add to PATH (add this to your ~/.bashrc or ~/.zshrc)
+export PATH=$HOME/.local/bin:$PATH
+```
+
+
+### Models I used
+Personally, I found that `Gemma3` as a generator, and `sentence-transformers/all-MiniLM-L6-v2` worked very well
+
+To install `Gemma3` via ollama:
+- First, run `./ollama serve`
+- In another terminal window, run `./ollama pull gemma3:latest`
+
+`all-MiniLM-L6-v2` will automatically be installed from HuggingFace when this app is run for the first time.
 
 ## References and Acknowledgments
 
