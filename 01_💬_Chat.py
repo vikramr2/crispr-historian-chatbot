@@ -29,8 +29,8 @@ def main():
     The main function that runs the application.
     """
 
-    page_icon("💬")
-    st.subheader("Ollama Playground", divider="red", anchor=False)
+    page_icon("🧬")
+    st.subheader("CRISPR Historian Chatbot", divider="red", anchor=False)
 
     client = OpenAI(
         base_url="http://localhost:11434/v1",
@@ -48,7 +48,7 @@ def main():
     else:
         st.warning("You have not pulled any model from Ollama yet!", icon="⚠️")
         if st.button("Go to settings to download a model"):
-            st.page_switch("pages/03_⚙️_Settings.py")
+            st.page_switch("pages/02_⚙️_Settings.py")
 
     message_container = st.container(height=500, border=True)
 
