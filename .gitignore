@@ -3,3 +3,7 @@
 .venv
 venv
 utilities/__pycache__
+*.out
+*.err
+*.log
+vectorstore/
