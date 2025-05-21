@@ -1,5 +1,7 @@
 # CRISPR Historian ChatBot
 
+This is a specialized chatbot meant to give more in depth answers on the history of CRISPR as a field.
+
 ## Features
 
 From the original repository
@@ -9,7 +11,7 @@ From the original repository
 
 Updates
 - **Prompt Chaining**: Uses langchain to decompose questions into specialized subquestions to improve answer quality
-- **Retrieval Augmented Generation (RAG)**: This chatbot retrieves from a database of 976 pdfs on CRISPR
+- **Retrieval Augmented Generation (RAG)**: This chatbot retrieves from a database of 976 pdfs of research articles on CRISPR
 
 ## Installation
 
@@ -42,6 +44,7 @@ Navigate to the URL provided by Streamlit in your browser to interact with the a
 ## References and Acknowledgments
 
 References:
-- This [original repository](https://github.com/tonykipkemboi/ollama_streamlit_demos) served as a 
+- This [original repository](https://github.com/tonykipkemboi/ollama_streamlit_demos) served as a great template to build this RAG on top of.
+- This [tutorial](https://www.youtube.com/watch?v=bAI_jWsLhFM) was also really helpful.
 
 👏 Kudos to the [Ollama](https://ollama.com/) team for their efforts in making open-source models more accessible!
