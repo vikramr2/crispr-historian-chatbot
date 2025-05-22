@@ -1,5 +1,6 @@
 import ollama                                                       # type: ignore
 import streamlit as st                                              # type: ignore    
+import time
 from utilities.icon import page_icon
 from langchain.prompts import ChatPromptTemplate, PromptTemplate    # type: ignore
 from langchain.retrievers.multi_query import MultiQueryRetriever    # type: ignore
@@ -79,6 +80,23 @@ def extract_model_names(models_info: list) -> tuple:
     """Extract model names from models information."""
     return tuple(model["model"] for model in models_info["models"])
 
+def format_timing(elapsed_time: float) -> str:
+    """Format elapsed time for display"""
+    if elapsed_time < 1:
+        return f"⏱️ {elapsed_time*1000:.0f}ms"
+    elif elapsed_time < 60:
+        return f"⏱️ {elapsed_time:.1f}s"
+    else:
+        minutes = int(elapsed_time // 60)
+        seconds = elapsed_time % 60
+        return f"⏱️ {minutes}m {seconds:.1f}s"
+
+def display_timing(elapsed_time: float):
+    """Display timing information in gray text"""
+    timing_text = format_timing(elapsed_time)
+    st.markdown(f'<p style="color: gray; font-size: 0.8em; margin-top: 5px;">{timing_text}</p>', 
+                unsafe_allow_html=True)
+
 def main():
     """The main function that runs the application."""
     page_icon("🧬")
@@ -114,6 +132,9 @@ def main():
         avatar = "🤖" if message["role"] == "assistant" else "😎"
         with message_container.chat_message(message["role"], avatar=avatar):
             st.markdown(message["content"])
+            # Display timing for assistant messages if available
+            if message["role"] == "assistant" and "timing" in message:
+                display_timing(message["timing"])
 
     if prompt := st.chat_input("Ask a question about CRISPR..."):
         try:
@@ -121,12 +142,17 @@ def main():
             message_container.chat_message("user", avatar="😎").markdown(prompt)
 
             with message_container.chat_message("assistant", avatar="🤖"):
+                start_time = time.time()
+                
                 if use_rag:
                     # Use your original RAG chain
                     with st.spinner("Retrieving CRISPR knowledge..."):
                         chain = initialize_rag_chain()
                         response = chain.invoke(prompt)  # Direct invoke, not streaming
+                        elapsed_time = time.time() - start_time
+                        
                         st.markdown(response)
+                        display_timing(elapsed_time)
                 else:
                     # Regular chat without retrieval
                     with st.spinner("Generating response..."):
@@ -140,8 +166,15 @@ def main():
                             stream=True,
                         )
                         response = st.write_stream(stream)
-                        
-            st.session_state.messages.append({"role": "assistant", "content": response})
+                        elapsed_time = time.time() - start_time
+
+                        display_timing(elapsed_time)
+
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": response,
+                "timing": elapsed_time
+            })
 
         except Exception as e:
             st.error(f"Error: {e}", icon="⛔️")
