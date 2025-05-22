@@ -110,6 +110,10 @@ def main():
     else:
         st.sidebar.info("💬 Using regular chat mode")
 
+    if st.sidebar.button("🗑️ Clear Cache"):
+        st.cache_resource.clear()
+        st.rerun()
+
     models_info = ollama.list()
     available_models = extract_model_names(models_info)
 
