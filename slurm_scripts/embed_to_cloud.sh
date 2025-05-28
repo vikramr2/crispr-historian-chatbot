@@ -22,4 +22,4 @@ PDF_DIR=/projects/illinois/eng/cs/chackoge/illinoiscomputes/vikramr2/llm-crispr/
 
 python ../rag/cloud_embed.py \
     --pdf_dir ${PDF_DIR} \
-    --pinecone_index_name "llm-crispr"
+    --index_name "llm-crispr" 
