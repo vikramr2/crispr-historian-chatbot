@@ -11,6 +11,6 @@ langchain_community==0.3.19
 chromadb==0.6.3
 unstructured==0.16.25
 unstructured-client==0.31.1
-pysqlite3-binary
+# pysqlite3-binary
 transformers==4.49.0
 sentence-transformers

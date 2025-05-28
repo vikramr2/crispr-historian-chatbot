@@ -1,7 +1,10 @@
+"""
+Main chat application for CRISPR Historian using LangChain and Ollama.
+"""
+
+import time
 import ollama                                                       # type: ignore
 import streamlit as st                                              # type: ignore    
-import time
-from utilities.icon import page_icon
 from langchain.prompts import ChatPromptTemplate, PromptTemplate    # type: ignore
 from langchain.retrievers.multi_query import MultiQueryRetriever    # type: ignore
 from langchain_community.chat_models import ChatOllama              # type: ignore
@@ -9,6 +12,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings    # type: igno
 from langchain_community.vectorstores import Chroma                 # type: ignore
 from langchain_core.output_parsers import StrOutputParser           # type: ignore
 from langchain_core.runnables import RunnablePassthrough            # type: ignore
+from utilities.icon import page_icon
 
 st.set_page_config(
     page_title="CRISPR Historian",
@@ -22,21 +26,21 @@ st.set_page_config(
 def initialize_rag_chain():
     """Initialize the complete RAG chain exactly as in your original script"""
     persist_directory = "rag/vectorstore"
-    
+
     # Much smaller and faster model
     embeddings = HuggingFaceEmbeddings(
         model_name="all-MiniLM-L6-v2"  # Only ~80MB vs larger medical models
     )
-    
+
     vectorstore = Chroma(
         persist_directory=persist_directory,
         embedding_function=embeddings
     )
-    
+
     local_model = "gemma3:latest"
     llm = ChatOllama(model=local_model)
-    
-    QUERY_PROMPT = PromptTemplate(
+
+    QUERY_PROMPT = PromptTemplate(  # pylint: disable=invalid-name
         input_variables=["question"],
         template="""You are an AI assistant specializing in CRISPR technology and its history. Your task is to generate five
         different versions of the given user question to retrieve relevant documents about CRISPR, its discovery, development,
@@ -45,24 +49,24 @@ def initialize_rag_chain():
         separated by newlines.
         Original question: {question}""",
     )
-    
+
     retriever = MultiQueryRetriever.from_llm(
         vectorstore.as_retriever(),
         llm,
         prompt=QUERY_PROMPT
     )
-    
-    # The exact template from your original script
+
+    # Context infused prompt template
     template = """Answer the question. based ONLY on the following context:
-{context}
-Question: {question}
-"""
-    
+    {context}
+    Question: {question}
+    """
+
     prompt = ChatPromptTemplate.from_template(template)
-    
+
     # The exact chain from your original script
     chain = (
-        {"context": retriever, "question": RunnablePassthrough()}
+        {"context": retriever, "question": RunnablePassthrough()}   # pylint: disable=unsupported-binary-operation
         | prompt
         | llm
         | StrOutputParser()
@@ -120,7 +124,7 @@ def main():
     if not available_models:
         st.warning("You have not pulled any model from Ollama yet!", icon="⚠️")
         if st.button("Go to settings to download a model"):
-            st.page_switch("pages/settings.py")
+            st.page_switch("pages/settings.py") # pylint: disable=no-member
         return
 
     selected_model = st.selectbox(
@@ -180,7 +184,7 @@ def main():
                 "timing": elapsed_time
             })
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             st.error(f"Error: {e}", icon="⛔️")
             st.error("Make sure your vectorstore directory exists and contains CRISPR data.")
 

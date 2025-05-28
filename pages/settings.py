@@ -1,6 +1,10 @@
+"""
+Settings page for managing models in Ollama.
+"""
+
+from time import sleep
 import streamlit as st
 import ollama
-from time import sleep
 from utilities.icon import page_icon
 
 st.set_page_config(
@@ -12,6 +16,9 @@ st.set_page_config(
 
 
 def main():
+    """
+    Main function to render the model management page.
+    """
     page_icon("⚙️")
     st.subheader("Model Management", divider="red", anchor=False)
 
@@ -27,7 +34,7 @@ def main():
                 st.balloons()
                 sleep(1)
                 st.rerun()
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 st.error(
                     f"""Failed to download model: {
                     model_name}. Error: {str(e)}""",
@@ -51,12 +58,12 @@ SYSTEM You are mario from super mario bros.""",
     if st.button(f"🆕 Create Model {model_name}"):
         if model_name and modelfile:
             try:
-                ollama.create(model=model_name, modelfile=modelfile)
+                ollama.create(model=model_name, modelfile=modelfile)    # pylint: disable=unexpected-keyword-arg
                 st.success(f"Created model: {model_name}", icon="✅")
                 st.balloons()
                 sleep(1)
                 st.rerun()
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 st.error(
                     f"""Failed to create model: {
                          model_name}. Error: {str(e)}""",
@@ -81,7 +88,7 @@ SYSTEM You are mario from super mario bros.""",
                     st.balloons()
                     sleep(1)
                     st.rerun()
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-except
                     st.error(
                         f"""Failed to delete model: {
                         model}. Error: {str(e)}""",
