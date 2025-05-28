@@ -153,7 +153,7 @@ def main():
                 start_time = time.time()
                 
                 if use_rag:
-                    # Use your original RAG chain
+                    # Use RAG chain
                     with st.spinner("Retrieving CRISPR knowledge..."):
                         chain = initialize_rag_chain()
                         response = chain.invoke(prompt)  # Direct invoke, not streaming

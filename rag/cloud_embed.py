@@ -7,8 +7,7 @@ using LangChain and Pinecone. It processes PDFs efficiently with memory manageme
 and progress tracking.
 """
 
-from pinecone import Pinecone, ServerlessSpec   # type: ignore
-from dotenv import load_dotenv                  # type: ignore
+# pylint: disable=logging-fstring-interpolation,broad-except,no-name-in-module
 
 import os
 import gc
@@ -18,14 +17,16 @@ import argparse
 import hashlib
 from typing import List, Generator, Dict, Any
 from pathlib import Path
+from pinecone import Pinecone, ServerlessSpec   # type: ignore pylint: disable=no-name-in-module
+from dotenv import load_dotenv                  # type: ignore
 from tqdm import tqdm
 
 # Import LangChain components
 from langchain_community.document_loaders import PyPDFLoader            # type: ignore
+from langchain_community.embeddings import HuggingFaceEmbeddings        # type: ignore
 from langchain_text_splitters import RecursiveCharacterTextSplitter     # type: ignore
 from langchain_pinecone import PineconeVectorStore                      # type: ignore
 from langchain_core.documents import Document                           # type: ignore   
-from langchain_community.embeddings import HuggingFaceEmbeddings        # type: ignore
 
 # Configure logging
 logging.basicConfig(
@@ -55,64 +56,64 @@ def parse_arguments():
         help="Directory containing PDF files"
     )
     parser.add_argument(
-        "--index_name", 
-        type=str, 
+        "--index_name",
+        type=str,
         required=True,
         help="Name of the Pinecone index"
     )
     parser.add_argument(
-        "--chunk_size", 
-        type=int, 
+        "--chunk_size",
+        type=int,
         default=1000,
         help="Size of text chunks (default: 1000 for better Pinecone performance)"
     )
     parser.add_argument(
         "--chunk_overlap", 
-        type=int, 
+        type=int,
         default=200,
         help="Overlap between chunks"
     )
     parser.add_argument(
         "--model_name", 
-        type=str, 
+        type=str,
         default="all-MiniLM-L6-v2",
         help="Embedding model name"
     )
     parser.add_argument(
         "--batch_size", 
-        type=int, 
+        type=int,
         default=100,
         help="Batch size for adding documents to Pinecone"
     )
     parser.add_argument(
-        "--dimension", 
-        type=int, 
+        "--dimension",
+        type=int,
         default=384,
-        help="Vector dimension (384 for all-MiniLM-L6-v2, 768 for sentence-transformers/all-mpnet-base-v2)"
+        help="Vector dimension"
     )
     parser.add_argument(
-        "--metric", 
-        type=str, 
+        "--metric",
+        type=str,
         default="cosine",
         choices=["cosine", "euclidean", "dotproduct"],
         help="Distance metric for Pinecone index"
     )
     parser.add_argument(
-        "--cloud", 
-        type=str, 
+        "--cloud",
+        type=str,
         default="aws",
         choices=["aws", "gcp", "azure"],
         help="Cloud provider for Pinecone serverless"
     )
     parser.add_argument(
-        "--region", 
-        type=str, 
+        "--region",
+        type=str,
         default="us-east-1",
         help="Cloud region for Pinecone serverless"
     )
     parser.add_argument(
         "--namespace", 
-        type=str, 
+        type=str,
         default="",
         help="Pinecone namespace (optional)"
     )
@@ -191,7 +192,7 @@ def load_pdf_generator(
             del data, chunks
             gc.collect()
             
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             logger.error(f"Error processing {pdf_path}: {e}", exc_info=True)
             continue
 

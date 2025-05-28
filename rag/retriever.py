@@ -46,8 +46,7 @@ Question: {question}
 prompt = ChatPromptTemplate.from_template(template)
 
 chain = (
-    {"context": retriver, "question": RunnablePassthrough()}
-    | prompt
+    {"context": retriver, "question": RunnablePassthrough()}    # pylint: disable=unsupported-binary-operation
     | llm
     | StrOutputParser()
 )
