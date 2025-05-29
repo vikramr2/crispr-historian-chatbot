@@ -4,13 +4,10 @@ This is a specialized chatbot meant to give more in depth answers on the history
 
 ## Features
 
-From the original repository
 - **Interactive UI**: Utilize Streamlit to create a user-friendly interface.
-- **Local Model Execution**: Run your Ollama models locally without the need for external APIs.
-- **Real-time Responses**: Get real-time responses from your models directly in the UI.
-
-Updates
+- **Local Model Execution**: Run open source Ollama models locally without the need for API keys.
 - **Prompt Chaining**: Uses langchain to decompose questions into specialized subquestions to improve answer quality
+- **Fact Verification**: Added module to fact check and improve responses.
 - **Retrieval Augmented Generation (RAG)**: This chatbot retrieves from a database of 976 pdfs of research articles on CRISPR
 
 ## Installation
