@@ -66,6 +66,26 @@ To start the app, simply run the following command in your terminal:
 
 If a browser hasn't opened automatically, navigate to the URL provided by Streamlit in your browser to interact with the app.
 
+## Features
+
+### Fact Checking
+
+The chatbot first answers the question, and then puts its answer through a fact check in order to refine it.
+
+![fact_checking](assets/fact_check.jpeg)
+
+### Source Listing
+
+To ensure credibility in responses, sources are listed under every answer so that you, the historian, can examine these text snippets for further information.
+
+![sources](assets/finds_sources.jpeg)
+
+### Dialable Settings
+
+*(While this is not recommended, and was intended for testing purposes)*, you can dial between using the document-informed RAG, and letting the LLM use it's own background knowledge.
+
+<img src="assets/dialable_settings.jpeg" alt="dialability" width=200>
+
 ## References and Acknowledgments
 
 References:

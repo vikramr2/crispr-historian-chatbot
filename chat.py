@@ -27,6 +27,9 @@ load_dotenv()
 PINECONE_INDEX_NAME = "llm-crispr"
 PINECONE_NAMESPACE = ""
 
+# Path to PDF files (for source attribution)
+PDF_PATH = "/projects/illinois/eng/cs/chackoge/illinoiscomputes/vikramr2/llm-crispr/data/pdfs"
+
 st.set_page_config(
     page_title="CRISPR Historian",
     page_icon="🧬",
@@ -357,7 +360,30 @@ def display_source_documents(docs: List[Document], message_id: str = ""):
             source = doc.metadata.get('source', 'Unknown source')
             page = doc.metadata.get('page_num', 'Unknown page')
 
-            st.markdown(f"**Source {i+1}:** {source} (Page {page})")
+            # Get only the part of the source after the PDF_PATH
+            if source.startswith(PDF_PATH):
+                source = source[len(PDF_PATH):].lstrip('/')
+
+            # Get paper metadata
+            author = doc.metadata.get('author', '')
+            year = doc.metadata.get('creationdaete', '')
+            title = doc.metadata.get('title', '')
+
+            # Format the author part to say et. al. is there are multiple authors
+            author_list = author.split(', ')
+            if len(author_list) > 1:
+                author = f"{author_list[0]} et al."
+
+            # Get the year from the creation date
+            if year != '':
+                year = f'({year[:4]})'
+
+            if len(author) or len(year) or len(title):
+                cite_string = f"{author} {year}. {title}. Page {page}."
+            else:
+                cite_string = f"Source {i+1} - {source} (Page {page})"
+
+            st.markdown(f"**Source {i+1}:** {cite_string}")
 
             # Clean content for display (remove annotations)
             content = doc.page_content
