@@ -74,6 +74,10 @@ The chatbot first answers the question, and then puts its answer through a fact 
 
 ![fact_checking](assets/fact_check.jpeg)
 
+The fact checking window will then contain a corrected response.
+
+![fact_checking2](assets/fact_check2.jpg)
+
 ### Source Listing
 
 To ensure credibility in responses, sources are listed under every answer so that you, the historian, can examine these text snippets for further information.
