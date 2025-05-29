@@ -10,33 +10,16 @@ This is a specialized chatbot meant to give more in depth answers on the history
 - **Fact Verification**: Added module to fact check and improve responses.
 - **Retrieval Augmented Generation (RAG)**: This chatbot retrieves from a database of 976 pdfs of research articles on CRISPR
 
-## Installation
+## Prerequisites
 
-Before running the app, ensure you have Python installed on your machine. Then, clone this repository and install the required packages using pip:
+### Installing Ollama
 
-```bash
-git clone https://github.com/vikramr2/crispr_historian_chatbot.git
-```
+If you have root privileges on your machine, Ollama can easily be downloaded [here](https://ollama.com/). The installation instructions should guide you through how to up a server.
 
-```bash
-cd crispr_historian_chatbot
-```
+**If you don't have root privileges on your machine please read here**
 
-```bash
-pip install -r requirements.txt
-```
+Here, you would have to download ollama in its binary format and run a server using the binary.
 
-## Usage
-
-To start the app, run the following command in your terminal:
-
-```bash
-streamlit run chat.py --server.address=0.0.0.0 --server.port=8501
-```
-
-Navigate to the URL provided by Streamlit in your browser to interact with the app.
-
-### Installing Ollama without root
 ```bash
 # Create a local bin directory
 mkdir -p $HOME/.local/bin
@@ -49,17 +32,39 @@ chmod +x $HOME/.local/bin/ollama
 
 # Add to PATH (add this to your ~/.bashrc or ~/.zshrc)
 export PATH=$HOME/.local/bin:$PATH
-```
 
+# Start a server
+ollama serve
+```
 
 ### Models I used
 Personally, I found that `Gemma3` as a generator, and `sentence-transformers/all-MiniLM-L6-v2` worked very well
 
 To install `Gemma3` via ollama:
-- First, run `./ollama serve`
-- In another terminal window, run `./ollama pull gemma3:latest`
+- If you don't have an ollama server running, first, run `ollama serve`
+- In another terminal window, run `ollama pull gemma3:latest`
 
 `all-MiniLM-L6-v2` will automatically be installed from HuggingFace when this app is run for the first time.
+
+## Installation
+
+Before running the app, ensure you have Python installed on your machine. Then, clone this repository and install the required packages using pip:
+
+```bash
+git clone https://github.com/vikramr2/crispr_historian_chatbot.git
+cd crispr_historian_chatbot
+pip install -r requirements.txt
+```
+
+## Usage
+
+To start the app, simply run the following command in your terminal:
+
+```bash
+./run_chat.sh
+```
+
+If a browser hasn't opened automatically, navigate to the URL provided by Streamlit in your browser to interact with the app.
 
 ## References and Acknowledgments
 
