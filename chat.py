@@ -17,6 +17,7 @@ from langchain_community.chat_models import ChatOllama
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langchain_core.documents import Document
+from openai import OpenAI
 from utilities.icon import page_icon
 
 # Load environment variables
@@ -127,7 +128,6 @@ class EnhancedDocumentRetriever:
 @st.cache_resource
 def initialize_regular_chat():
     """Initialize a regular chat without RAG for comparison"""
-    from openai import OpenAI   # type: ignore
     return OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
 
 def format_timing(elapsed_time: float) -> str:
@@ -286,11 +286,19 @@ def initialize_enhanced_rag_chain():
         # Create verification chain
         verifier = create_fact_verification_chain(llm)
 
-        def enhanced_rag_chain(question: str) -> Dict[str, Any]:
+        def enhanced_rag_chain(question: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
             """Enhanced RAG chain with verification"""
 
+            # Create context-aware query if we have conversation history
+            if conversation_history and len(conversation_history) > 0:
+                recent_messages = conversation_history[-4:] if len(conversation_history) > 4 else conversation_history
+                context_summary = "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent_messages])
+                enhanced_query = f"Context from previous conversation:\n{context_summary}\n\nCurrent question: {question}"
+            else:
+                enhanced_query = question
+
             # Get documents
-            docs = retriever.get_relevant_documents(question)
+            docs = retriever.get_relevant_documents(enhanced_query)
 
             # Format context with clear source separation for LLM processing
             # (but this won't appear in the final answer)
@@ -303,7 +311,7 @@ def initialize_enhanced_rag_chain():
             # Generate initial response
             initial_response = llm.invoke(prompt.format_messages(
                 context=context, 
-                question=question
+                question=enhanced_query
             ))
 
             # Verify the response
@@ -436,7 +444,9 @@ def main():
             if use_enhanced_rag:
                 with st.spinner("🔍 Searching with fact checking..."):
                     try:
-                        result = chain(prompt)
+                        # Get conversation history (excluding current prompt)
+                        conversation_history = st.session_state.messages[:-1] if len(st.session_state.messages) > 1 else []
+                        result = chain(prompt, conversation_history)
                         elapsed_time = time.time() - start_time
                         
                         display_enhanced_response(result, f"current_{len(st.session_state.messages)}")
