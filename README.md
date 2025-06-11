@@ -1,24 +1,28 @@
-# CRISPR Historian ChatBot
+# 🧬 CRISPR Historian ChatBot
 
-This is a specialized chatbot meant to give more in depth answers on the history of CRISPR as a field.
+A specialized chatbot designed to provide in-depth answers on the history of CRISPR as a field, powered by local AI models and retrieval-augmented generation.
 
-## Features
+---
 
-- **Interactive UI**: Utilize Streamlit to create a user-friendly interface.
-- **Local Model Execution**: Run open source Ollama models locally without the need for API keys.
-- **Prompt Chaining**: Uses langchain to decompose questions into specialized subquestions to improve answer quality
-- **Fact Verification**: Added module to fact check and improve responses.
-- **Retrieval Augmented Generation (RAG)**: This chatbot retrieves from a database of 976 pdfs of research articles on CRISPR
+## ✨ Features
 
-## Prerequisites
+- **🖥️ Interactive UI**: User-friendly interface built with Streamlit
+- **🏠 Local Model Execution**: Run open-source Ollama models locally without API keys
+- **🔗 Prompt Chaining**: Uses LangChain to decompose questions into specialized subquestions for improved answer quality
+- **✅ Fact Verification**: Built-in module to fact-check and improve responses
+- **📚 Retrieval Augmented Generation (RAG)**: Access to a database of 976 research articles on CRISPR
+
+---
+
+## 🛠️ Prerequisites
 
 ### Installing Ollama
 
-If you have root privileges on your machine, Ollama can easily be downloaded [here](https://ollama.com/). The installation instructions should guide you through how to up a server.
+#### With Root Privileges
+Download Ollama directly from [ollama.com](https://ollama.com/) and follow the installation instructions.
 
-**If you don't have root privileges on your machine please read here**
-
-Here, you would have to download ollama in its binary format and run a server using the binary.
+#### Without Root Privileges
+Install Ollama in binary format:
 
 ```bash
 # Create a local bin directory
@@ -37,63 +41,92 @@ export PATH=$HOME/.local/bin:$PATH
 ollama serve
 ```
 
-### Models I used
-Personally, I found that `Gemma3` as a generator, and `sentence-transformers/all-MiniLM-L6-v2` worked very well
+### 🤖 Recommended Models
 
-To install `Gemma3` via ollama:
-- If you don't have an ollama server running, first, run `ollama serve`
-- In another terminal window, run `ollama pull gemma3:latest`
+- **Generator**: `Gemma3` - Excellent performance for CRISPR-related queries
+- **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2` - Automatically installed from HuggingFace
 
-`all-MiniLM-L6-v2` will automatically be installed from HuggingFace when this app is run for the first time.
-
-## Installation
-
-Before running the app, ensure you have Python installed on your machine. Then, clone this repository and install the required packages using pip:
-
+**Installing Gemma3:**
 ```bash
-git clone https://github.com/vikramr2/crispr_historian_chatbot.git
-cd crispr_historian_chatbot
-pip install -r requirements.txt
+# Start Ollama server (if not running)
+ollama serve
+
+# In another terminal, pull the model
+ollama pull gemma3:latest
 ```
 
-## Usage
+---
 
-To start the app, simply run the following command in your terminal:
+## 🚀 Installation
 
+1. **Clone the repository:**
+    ```bash
+    git clone https://github.com/vikramr2/crispr_historian_chatbot.git
+    cd crispr_historian_chatbot
+    ```
+
+2. **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+---
+
+## 💻 Usage
+
+Start the application:
 ```bash
 ./run_chat.sh
 ```
 
-If a browser hasn't opened automatically, navigate to the URL provided by Streamlit in your browser to interact with the app.
+Navigate to the URL provided by Streamlit in your browser to interact with the chatbot.
 
-## Features
+---
 
-### Fact Checking
+## 🎯 Key Features
 
-The chatbot first answers the question, and then puts its answer through a fact check in order to refine it.
+### ✅ Fact Checking
+The chatbot provides an initial answer, then performs fact-checking to refine and improve the response.
 
-![fact_checking](assets/fact_check.jpeg)
+<div align="center">
+  <img src="assets/fact_check.jpeg" alt="Fact Checking Process" width="600">
+  <br><em>Initial fact-checking process</em>
+</div>
 
-The fact checking window will then contain a corrected response.
+<div align="center">
+  <img src="assets/fact_check2.jpg" alt="Refined Response" width="600">
+  <br><em>Fact-checked and refined response</em>
+</div>
 
-![fact_checking2](assets/fact_check2.jpg)
+### 📖 Source Listing
+Every response includes source citations, allowing historians to examine text snippets for further research.
 
-### Source Listing
+<div align="center">
+  <img src="assets/finds_sources.jpeg" alt="Source Citations" width="600">
+  <br><em>Comprehensive source listing</em>
+</div>
 
-To ensure credibility in responses, sources are listed under every answer so that you, the historian, can examine these text snippets for further information.
+### ⚙️ Dialable Settings
+**(Testing purposes only)** Toggle between document-informed RAG and the LLM's background knowledge.
 
-![sources](assets/finds_sources.jpeg)
+<div align="center">
+  <img src="assets/dialable_settings.jpeg" alt="Settings Panel" width="200">
+  <br><em>Configurable response settings</em>
+</div>
 
-### Dialable Settings
+---
 
-*(While this is not recommended, and was intended for testing purposes)*, you can dial between using the document-informed RAG, and letting the LLM use it's own background knowledge.
+## 🙏 References and Acknowledgments
 
-<img src="assets/dialable_settings.jpeg" alt="dialability" width=200>
+**Inspiration & Resources:**
+- [Original Ollama Streamlit Template](https://github.com/tonykipkemboi/ollama_streamlit_demos) - Foundation for RAG implementation
+- [RAG Tutorial](https://www.youtube.com/watch?v=bAI_jWsLhFM) - Helpful development guidance
 
-## References and Acknowledgments
+**Special Thanks:**
+👏 Kudos to the [Ollama](https://ollama.com/) team for making open-source models more accessible!
 
-References:
-- This [original repository](https://github.com/tonykipkemboi/ollama_streamlit_demos) served as a great template to build this RAG on top of.
-- This [tutorial](https://www.youtube.com/watch?v=bAI_jWsLhFM) was also really helpful.
+---
 
-👏 Kudos to the [Ollama](https://ollama.com/) team for their efforts in making open-source models more accessible!
+<div align="center">
+  <em>Built for historians, researchers, and CRISPR enthusiasts</em>
+</div>
