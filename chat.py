@@ -289,11 +289,11 @@ def initialize_enhanced_rag_chain():
         # Create verification chain
         verifier = create_fact_verification_chain(llm)
 
-        def enhanced_rag_chain(question: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
-            """Enhanced RAG chain with verification"""
+        def enhanced_rag_chain(question: str, conversation_history: List[Dict] = None, use_conversation_context: bool = True) -> Dict[str, Any]:
+            """Enhanced RAG chain with verification and optional conversation context"""
 
-            # Create context-aware query if we have conversation history
-            if conversation_history and len(conversation_history) > 0:
+            # Create context-aware query only if use_conversation_context is True
+            if use_conversation_context and conversation_history and len(conversation_history) > 0:
                 recent_messages = conversation_history[-4:] if len(conversation_history) > 4 else conversation_history
                 context_summary = "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent_messages])
                 enhanced_query = f"Context from previous conversation:\n{context_summary}\n\nCurrent question: {question}"
@@ -326,7 +326,8 @@ def initialize_enhanced_rag_chain():
                 'verification': verification_result,
                 'source_documents': retriever.last_retrieved_docs,
                 'context_used': docs,
-                'needs_review': verification_result.get('needs_correction', False)
+                'needs_review': verification_result.get('needs_correction', False),
+                'used_conversation_context': use_conversation_context and conversation_history and len(conversation_history) > 0
             }
 
         return enhanced_rag_chain, stats, retriever
@@ -337,6 +338,14 @@ def initialize_enhanced_rag_chain():
 
 def display_enhanced_response(result: Dict[str, Any], message_id: str):
     """Display response with verification information"""
+
+    # Show context usage indicator
+    if result.get('used_conversation_context', False):
+        st.markdown('<p style="color: #2E8B57; font-size: 0.85em; margin-bottom: 10px;">💬 Using conversation context</p>', 
+                   unsafe_allow_html=True)
+    else:
+        st.markdown('<p style="color: #4682B4; font-size: 0.85em; margin-bottom: 10px;">🆕 Fresh conversation context</p>', 
+                   unsafe_allow_html=True)
 
     # Main answer
     st.markdown(result['answer'])
@@ -406,10 +415,8 @@ def display_source_documents(docs: List[Document], message_id: str = ""):
 
             st.divider()
 
-# [Keep the existing helper functions: extract_model_names, format_timing, display_timing]
-
 def main():
-    """Enhanced main function with better context handling"""
+    """Enhanced main function with new conversation toggle"""
     page_icon("🧬")
     st.subheader("CRISPR Historian Chatbot", divider="red", anchor=False)
 
@@ -418,6 +425,19 @@ def main():
     st.sidebar.info(f"Using Index: **{PINECONE_INDEX_NAME}**")
     
     use_enhanced_rag = st.sidebar.toggle("Use Enhanced CRISPR Knowledge Retrieval", value=True)
+    
+    # NEW CONVERSATION TOGGLE
+    st.sidebar.markdown("---")
+    new_conversation_mode = st.sidebar.toggle(
+        "🆕 New Conversation", 
+        value=False,
+        help="When enabled, each question is treated as a fresh conversation without using previous chat history for context."
+    )
+    
+    if new_conversation_mode:
+        st.sidebar.info("💬 **Fresh context mode**: Each question starts a new conversation")
+    else:
+        st.sidebar.info("💬 **Continuous mode**: Using conversation history for context")
     
     if use_enhanced_rag:
         st.sidebar.success("🧬 Using RAG with fact verification")
@@ -442,6 +462,11 @@ def main():
         return
 
     selected_model = st.selectbox("Select model:", available_models)
+
+    # Add clear chat button
+    if st.sidebar.button("🗑️ Clear Chat History"):
+        st.session_state.messages = []
+        st.rerun()
 
     # Chat interface
     message_container = st.container(height=500, border=True)
@@ -470,9 +495,17 @@ def main():
             if use_enhanced_rag:
                 with st.spinner("🔍 Searching with fact checking..."):
                     try:
-                        # Get conversation history (excluding current prompt)
-                        conversation_history = st.session_state.messages[:-1] if len(st.session_state.messages) > 1 else []
-                        result = chain(prompt, conversation_history)
+                        # Determine conversation history based on toggle
+                        if new_conversation_mode:
+                            # Don't use conversation history - fresh context
+                            conversation_history = []
+                            use_conversation_context = False
+                        else:
+                            # Use conversation history (excluding current prompt)
+                            conversation_history = st.session_state.messages[:-1] if len(st.session_state.messages) > 1 else []
+                            use_conversation_context = True
+                        
+                        result = chain(prompt, conversation_history, use_conversation_context)
                         elapsed_time = time.time() - start_time
                         
                         display_enhanced_response(result, f"current_{len(st.session_state.messages)}")
@@ -492,12 +525,21 @@ def main():
                 # Regular chat without retrieval
                 with st.spinner("Generating response..."):
                     client = initialize_regular_chat()
-                    stream = client.chat.completions.create(
-                        model=selected_model,
-                        messages=[
+                    
+                    # Determine messages to send based on toggle
+                    if new_conversation_mode:
+                        # Only send the current prompt
+                        messages_to_send = [{"role": "user", "content": prompt}]
+                    else:
+                        # Send all conversation history
+                        messages_to_send = [
                             {"role": m["role"], "content": m["content"]}
                             for m in st.session_state.messages
-                        ],
+                        ]
+                    
+                    stream = client.chat.completions.create(
+                        model=selected_model,
+                        messages=messages_to_send,
                         stream=True,
                     )
                     response = st.write_stream(stream)
@@ -514,3 +556,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
