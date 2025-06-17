@@ -21,7 +21,7 @@ from pinecone import Pinecone
 
 from rag.document_retriever import DocumentRetriever
 from rag.temporal_query_classifier import TemporalQueryClassifier
-from utilities.display_utils import display_enhanced_response, display_timing, display_classification_result
+from utilities.display_utils import display_enhanced_response, display_timing
 from utilities.icon import page_icon
 
 # Load environment variables
