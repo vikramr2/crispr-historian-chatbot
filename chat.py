@@ -7,23 +7,22 @@ to provide precise answers about CRISPR technology, its history, and related top
 
 import os
 import time
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 import ollama
 import streamlit as st
 from dotenv import load_dotenv
-from pinecone import Pinecone
 from langchain.prompts import ChatPromptTemplate
 from langchain_community.chat_models import ChatOllama
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from openai import OpenAI
-from utilities.icon import page_icon
-from rag.document_retriever import DocumentRetriever
-from utilities.display_utils import (
-    display_timing,
-    display_enhanced_response
-)
+from pinecone import Pinecone
 
+from rag.document_retriever import DocumentRetriever
+from rag.temporal_query_classifier import TemporalQueryClassifier
+from utilities.display_utils import display_enhanced_response, display_timing, display_classification_result
+from utilities.icon import page_icon
 
 # Load environment variables
 load_dotenv()
@@ -186,6 +185,15 @@ def initialize_enhanced_rag_chain():
 
         def enhanced_rag_chain(question: str, conversation_history: List[Dict] = None, use_conversation_context: bool = True) -> Dict[str, Any]:
             """Enhanced RAG chain with verification and optional conversation context"""
+            # Add classifier initialization
+            classifier_llm = ChatOllama(
+                model="gemma3:latest",
+                temperature=0.1,
+                num_ctx=2048
+            )
+            classifier = TemporalQueryClassifier(classifier_llm)
+            classification_result = classifier.classify_query(question)
+
 
             # Create context-aware query only if use_conversation_context is True
             if use_conversation_context and conversation_history and len(conversation_history) > 0:
@@ -222,7 +230,8 @@ def initialize_enhanced_rag_chain():
                 'source_documents': retriever.last_retrieved_docs,
                 'context_used': docs,
                 'needs_review': verification_result.get('needs_correction', False),
-                'used_conversation_context': use_conversation_context and conversation_history and len(conversation_history) > 0
+                'used_conversation_context': use_conversation_context and conversation_history and len(conversation_history) > 0,
+                'temporal_classification': classification_result
             }
 
         return enhanced_rag_chain, stats, retriever
