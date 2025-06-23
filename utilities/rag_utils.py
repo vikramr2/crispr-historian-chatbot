@@ -8,7 +8,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone
 
-from rag.document_retriever import DocumentRetriever
+from rag.document_retriever import DocumentRetriever, create_evolutionary_answer_prompt, create_temporal_enhanced_prompt
 from rag.temporal_query_classifier import TemporalQueryClassifier
 
 from .constants import PINECONE_INDEX_NAME, PINECONE_NAMESPACE
@@ -143,9 +143,6 @@ def initialize_enhanced_rag_chain():
         # Create enhanced retriever
         retriever = DocumentRetriever(vectorstore, llm, k=5)
 
-        # Create enhanced prompt
-        prompt = create_enhanced_prompt()
-
         # Create verification chain
         verifier = create_fact_verification_chain(llm)
 
@@ -158,8 +155,10 @@ def initialize_enhanced_rag_chain():
                 num_ctx=2048
             )
             classifier = TemporalQueryClassifier(classifier_llm)
+            
+            # Classify the query
             classification_result = classifier.classify_query(question)
-
+            classification = classification_result["classification"]
 
             # Create context-aware query only if use_conversation_context is True
             if use_conversation_context and conversation_history and len(conversation_history) > 0:
@@ -170,15 +169,33 @@ def initialize_enhanced_rag_chain():
                 enhanced_query = question
 
             # Get documents
-            docs = retriever.get_relevant_documents(enhanced_query)
+            docs = retriever.get_relevant_documents_with_classification(enhanced_query, classification)
 
-            # Format context with clear source separation for LLM processing
-            # (but this won't appear in the final answer)
-            context_parts = []
-            for i, doc in enumerate(docs):
-                context_parts.append(f"DOCUMENT {i+1}:\n{doc.page_content}\n")
+            # Choose prompt and context formatting based on classification
+            if classification == "STANDARD":
+                # Create enhanced prompt
+                prompt = create_enhanced_prompt()
 
-            context = "\n" + "="*50 + "\n".join(context_parts)
+                # Format context with clear source separation for LLM processing
+                # (but this won't appear in the final answer)
+                context_parts = []
+                for i, doc in enumerate(docs):
+                    context_parts.append(f"DOCUMENT {i+1}:\n{doc.page_content}\n")
+
+                context = "\n" + "="*50 + "\n".join(context_parts)
+            elif classification == "EVOLUTIONARY":
+                # Use evolutionary answer prompt for this classification
+                prompt = create_evolutionary_answer_prompt()
+                context = retriever.create_evolutionary_context(docs)
+            else:
+                # Use temporal enhanced prompt for this classification
+                prompt = create_temporal_enhanced_prompt()
+
+                # Format context with clear source separation
+                context_parts = []
+                for i, doc in enumerate(docs):
+                    context_parts.append(f"DOCUMENT {i+1}:\n{doc.page_content}\n")
+                context = "\n" + "="*50 + "\n".join(context_parts)
 
             # Generate initial response
             initial_response = llm.invoke(prompt.format_messages(
@@ -197,7 +214,8 @@ def initialize_enhanced_rag_chain():
                 'context_used': docs,
                 'needs_review': verification_result.get('needs_correction', False),
                 'used_conversation_context': use_conversation_context and conversation_history and len(conversation_history) > 0,
-                'temporal_classification': classification_result
+                'temporal_classification': classification_result,
+                'retrieval_strategy': classification
             }
 
         return enhanced_rag_chain, stats, retriever
