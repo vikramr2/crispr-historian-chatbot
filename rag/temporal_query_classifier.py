@@ -1,6 +1,14 @@
 
 """
 Temporal Query Classifier for CRISPR Historian
+
+The classifier categorizes queries into three temporal categories:
+
+1. EXPLICIT_TEMPORAL: Queries with specific dates or time periods.
+2. EVOLUTIONARY: Queries about the development or history of scientific concepts.
+3. STANDARD: Current factual questions without temporal aspects.
+
+It uses a language model to classify queries and provide reasoning for the classification.
 """
 
 from typing import Dict, Any
