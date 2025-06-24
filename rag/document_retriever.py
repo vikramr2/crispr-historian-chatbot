@@ -139,7 +139,7 @@ class DocumentRetriever:
             for search_query in queries:
                 for year in years:
                     # Create year filter for Pinecone
-                    year_filter = {"year": {"$eq": year}}
+                    year_filter = {"year": {"$eq": str(year)}}
                     
                     docs = self.vectorstore.similarity_search(
                         search_query,
