@@ -103,6 +103,15 @@ def main():
             if message["role"] == "assistant" and "result" in message:
                 # Enhanced response display
                 display_enhanced_response(message["result"], f"msg_{idx}")
+                
+                # Display timeline if this was an evolutionary query
+                if message.get("result", {}).get('retrieval_strategy') == 'EVOLUTIONARY':
+                    display_timeline(message["result"])
+                
+                # Display timing if available
+                if "timing" in message:
+                    display_timing(message["timing"])
+                    
             else:
                 st.markdown(message["content"])
 
