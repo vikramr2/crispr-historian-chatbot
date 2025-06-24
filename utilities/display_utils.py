@@ -65,20 +65,20 @@ def display_source_documents(docs: List[Document], message_id: str = ""):
 
             # Get paper metadata
             author = doc.metadata.get('author', '')
-            year = doc.metadata.get('creationdaete', '')
+            year = doc.metadata.get('year', '')
             title = doc.metadata.get('title', '')
 
             # Format the author part to say et. al. is there are multiple authors
             author_list = author.split(', ')
             if len(author_list) > 1:
                 author = f"{author_list[0]} et al."
-
-            # Get the year from the creation date
-            if year != '':
-                year = f'({year[:4]})'
+            else:
+                first_author = doc.metadata.get('first_author', '')
+                if first_author:
+                    author = first_author
 
             if len(author) or len(year) or len(title):
-                cite_string = f"{author} {year}. {title}. Page {page}."
+                cite_string = f"{author}, {year}. {title}. Page {page}."
             else:
                 cite_string = f"Source {i+1} - {source} (Page {page})"
 

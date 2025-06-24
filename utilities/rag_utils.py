@@ -50,7 +50,7 @@ def create_enhanced_prompt() -> ChatPromptTemplate:
 def create_fact_verification_chain(llm) -> callable:
     """Create a secondary verification chain to double-check claims"""
 
-    verification_template = """Review this answer for factual accuracy based on the provided sources.
+    verification_template = """Review this answer for factual accuracy and temporal consistency based on the provided sources.
 
     ORIGINAL ANSWER:
     {answer}
@@ -59,18 +59,51 @@ def create_fact_verification_chain(llm) -> callable:
     {context}
 
     VERIFICATION TASK:
-    1. Check each factual claim in the answer against the source boundaries
-    2. Verify claims are explicitly stated (not inferred from proximity)
-    3. Flag any potential errors or unsupported inferences
-    4. Pay special attention to claims about achievements, awards, or connections between people
+    1. FACTUAL ACCURACY:
+    - Check each factual claim against the source boundaries
+    - Verify claims are explicitly stated (not inferred from proximity)
+    - Confirm author attributions match the sources exactly
+    - Verify year citations are correct
+
+    2. TEMPORAL CONSISTENCY:
+    - Extract all years mentioned in the answer
+    - Check if temporal language matches chronological order
+    - Flag cases where "later" refers to earlier years
+    - Verify evolutionary narrative follows proper chronological sequence
+
+    3. SOURCE ATTRIBUTION:
+    - Confirm each author citation exists in the sources
+    - Check that findings are attributed to the correct papers
+    - Verify that author names and years match exactly
+
+    4. LOGICAL FLOW:
+    - Ensure the narrative progression makes chronological sense
+    - Check that temporal connectors ("Initially", "Later", "Subsequently") are used correctly
+    - Verify that the evolutionary story follows a logical timeline
 
     VERIFICATION RESULT:
+
+    FACTUAL ACCURACY:
     - Confirmed facts: [list facts clearly supported by sources]
     - Questionable claims: [list claims that might be incorrectly inferred]
-    - Source mixing issues: [note if information from different sources was incorrectly combined]
-    - Overall assessment: [ACCURATE/NEEDS_REVIEW/INCORRECT]
+    - Attribution errors: [note any misattributed authors or years]
 
-    If issues found, provide CORRECTED VERSION:"""
+    TEMPORAL CONSISTENCY:
+    - Timeline issues: [list any chronological inconsistencies]
+    - Language problems: [note where temporal language doesn't match chronology]
+    - Suggested fixes: [propose corrections for temporal flow]
+
+    SOURCE MIXING ISSUES:
+    - [note if information from different sources was incorrectly combined]
+
+    OVERALL ASSESSMENT: [ACCURATE/NEEDS_TEMPORAL_CORRECTION/NEEDS_FACTUAL_CORRECTION/INCORRECT]
+
+    CORRECTED VERSION (if needed):
+    [Provide a corrected version that maintains proper chronological flow and accurate facts]
+
+    SPECIFIC CORRECTIONS MADE:
+    - [list specific changes made to fix temporal/factual issues]
+    """
 
     verification_prompt = ChatPromptTemplate.from_template(verification_template)
 

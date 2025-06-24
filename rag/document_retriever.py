@@ -20,6 +20,7 @@ class DocumentRetriever:
             input_variables=["question"],
             template="""Generate 3 precise search queries for CRISPR research documents.
             Focus on exact terms, names, and concepts from the question.
+            If the question mentions specific researchers or authors, include their names.
             Avoid combining unrelated concepts in a single query.
             
             Question: {question}
@@ -241,22 +242,25 @@ class DocumentRetriever:
         """Clean chunks and add clear source attribution"""
         cleaned_docs = []
         for i, doc in enumerate(docs):
-            # Create enhanced metadata
+            # Enhanced metadata extraction
             source = doc.metadata.get('source', f'Unknown_source_{i}')
+            title = doc.metadata.get('title', 'Unknown title')
+            first_author = doc.metadata.get('first_author', 'Unknown author')
+            year = doc.metadata.get('year', 'Unknown year')
             page = doc.metadata.get('page_num', 'Unknown')
 
             # Clean the content
             content = doc.page_content.strip()
 
-            # Add source annotation directly to content
-            annotated_content = f"[SOURCE: {source}, Page {page}]\n{content}\n[END SOURCE]"
+            # Enhanced source annotation with author and title
+            annotated_content = f"[SOURCE: {first_author} ({year}) - {title}, Page {page}, {source}]\n{content}\n[END SOURCE]"
 
-            # Create new document with annotated content
+            # Create new document with enhanced metadata
             cleaned_doc = Document(
                 page_content=annotated_content,
                 metadata={
                     **doc.metadata,
-                    'source_id': f"{source}_p{page}",
+                    'source_id': f"{first_author}_{year}_p{page}",
                     'chunk_id': i
                 }
             )
