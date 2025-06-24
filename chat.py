@@ -12,7 +12,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from utilities.display_utils import display_enhanced_response, display_timing
+from utilities.display_utils import display_enhanced_response, display_timing, display_timeline
 from utilities.icon import page_icon
 
 from utilities.constants import PINECONE_INDEX_NAME
@@ -131,6 +131,9 @@ def main():
                         elapsed_time = time.time() - start_time
                         
                         display_enhanced_response(result, f"current_{len(st.session_state.messages)}")
+
+                        if result.get('retrieval_strategy') == 'EVOLUTIONARY':
+                            display_timeline(result)
 
                         display_timing(elapsed_time)
                         

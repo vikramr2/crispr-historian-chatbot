@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 from typing import List, Dict, Any
 from langchain_core.documents import Document
 
@@ -145,3 +146,269 @@ def display_classification_result(result: Dict[str, Any]):
     # Show confidence if low
     if confidence == "low":
         st.warning("⚠️ Low confidence classification - please review")
+
+def display_timeline(result: Dict[str, Any]):
+    """Display the evolutionary answer in a hoverable timeline format"""
+    
+    # Extract timeline events
+    answer_text = result.get('answer', '')
+    source_docs = result.get('source_documents', [])
+    events = extract_timeline_events(answer_text, source_docs)
+    
+    if not events:
+        return
+    
+    with st.expander("🕰️ Timeline of Events", expanded=True):
+        st.markdown("**Timeline of Key Discoveries**")
+        st.markdown("*Hover over the timeline points to see details*")
+        
+        # Create the timeline visualization
+        min_year = min(event['year'] for event in events)
+        max_year = max(event['year'] for event in events)
+        year_range = max_year - min_year if max_year > min_year else 1
+        
+        # Build the complete HTML as one string
+        css_styles = """
+        <style>
+        .timeline-container {
+            position: relative;
+            margin: 20px 0;
+            padding: 40px 20px 20px 20px;
+            height: 120px;
+            overflow: visible;
+        }
+        
+        /* Allow the component to overflow */
+        body, html {
+            overflow: visible !important;
+        }
+        
+        .timeline-line {
+            position: absolute;
+            top: 100px;
+            left: 20px;
+            right: 20px;
+            height: 3px;
+            background: linear-gradient(90deg, #4ECDC4, #45B7D1);
+            border-radius: 2px;
+        }
+        
+        .timeline-point {
+            position: absolute;
+            top: 100px;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4ECDC4;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+        
+        .timeline-point:hover {
+            transform: translate(-50%, -50%) scale(1.3);
+            background: #FF6B6B;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .timeline-year {
+            position: absolute;
+            top: -25px;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: #4ECDC4;
+            white-space: nowrap;
+        }
+        
+        .timeline-tooltip {
+            position: fixed;
+            bottom: auto;
+            top: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            max-width: 280px;
+            min-width: 180px;
+            white-space: normal;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 999999;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+            text-align: left;
+            pointer-events: none;
+        }
+        
+        .timeline-tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: rgba(0,0,0,0.9);
+        }
+        
+        .timeline-point:hover .timeline-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .discovery-type {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-right: 5px;
+        }
+        
+        .type-discovery {
+            background: #4ECDC4;
+            color: white;
+        }
+        
+        .type-source {
+            background: #45B7D1;
+            color: white;
+        }
+        </style>
+        """
+        
+        # Build timeline container with padding to prevent overflow
+        timeline_container = '<div class="timeline-container"><div class="timeline-line"></div>'
+        
+        # Add timeline points with constrained positioning
+        for event in events:
+            # Calculate position (10-90% to leave room for tooltips)
+            position = 10 + ((event['year'] - min_year) / year_range) * 80
+            
+            # Clean and truncate description
+            description = event['description'].strip()
+            if len(description) > 100:
+                description = description[:97] + "..."
+            
+            # Escape HTML characters
+            description = (description.replace('&', '&amp;')
+                                   .replace('<', '&lt;')
+                                   .replace('>', '&gt;')
+                                   .replace('"', '&quot;')
+                                   .replace("'", '&#39;'))
+            
+            timeline_container += f'''
+            <div class="timeline-point" style="left: {position}%;">
+                <div class="timeline-year">{event['year']}</div>
+                <div class="timeline-tooltip">
+                    <div class="discovery-type type-{event['type']}">{event['type'].upper()}</div>
+                    <strong>{event['year']}</strong><br>
+                    {description}
+                </div>
+            </div>
+            '''
+        
+        timeline_container += '</div>'
+        
+        # Combine CSS and HTML
+        complete_html = css_styles + timeline_container
+        
+        # Display the timeline with increased height for tooltips
+        st.components.v1.html(complete_html, height=180)
+        
+        # Add a legend using markdown
+        st.markdown("""
+        <div style="margin-top: 10px; font-size: 12px; color: #666;">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #4ECDC4; border-radius: 50%; margin-right: 5px;"></span>
+            Discovery mentioned in answer
+            &nbsp;&nbsp;
+            <span style="display: inline-block; width: 12px; height: 12px; background: #45B7D1; border-radius: 50%; margin-right: 5px;"></span>
+            Source document
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Show detailed list below timeline
+        st.markdown("**Detailed Timeline:**")
+        for event in events:
+            icon = "🔬" if event['type'] == 'discovery' else "📄"
+            st.markdown(f"- **{event['year']}** {icon} {event['description']}")
+
+
+def extract_timeline_events(answer_text: str, source_docs: List[Document]) -> List[Dict[str, Any]]:
+    """Extract timeline events from the evolutionary answer and source documents"""
+    
+    events = []
+    
+    # Regular expression to find year mentions with context
+    year_patterns = [
+        r'(?:Initially,?\s+in|In|By|During)\s+(\d{4}),?\s+([^.]*\.)',  # "In 2014, something happened."
+        r'([A-Z][a-z]+(?:\s+et\s+al\.)?)\s+\((\d{4})\)\s+([^.]*\.)',   # "Author (2014) did something."
+        r'(\d{4})[,:]?\s+([^.]*\.)',  # "2014: something happened" or "2014, something"
+    ]
+    
+    seen_years = set()
+    
+    for pattern in year_patterns:
+        matches = re.finditer(pattern, answer_text, re.IGNORECASE)
+        for match in matches:
+            groups = match.groups()
+            
+            if len(groups) == 2:  # Year and description pattern
+                year_str, description = groups
+                if year_str.isdigit():
+                    year = int(year_str)
+                    if 1990 <= year <= 2030 and year not in seen_years:
+                        events.append({
+                            'year': year,
+                            'description': description.strip(),
+                            'type': 'discovery'
+                        })
+                        seen_years.add(year)
+                        
+            elif len(groups) == 3:  # Author, year, description pattern
+                author_or_year, year_or_desc, desc_or_year = groups
+                
+                # Try to determine which is which
+                if author_or_year.isdigit():  # First group is year
+                    year = int(author_or_year)
+                    description = f"{year_or_desc} {desc_or_year}".strip()
+                elif year_or_desc.isdigit():  # Second group is year
+                    year = int(year_or_desc)
+                    description = f"{author_or_year}: {desc_or_year}".strip()
+                else:
+                    continue
+                    
+                if 1990 <= year <= 2030 and year not in seen_years:
+                    events.append({
+                        'year': year,
+                        'description': description.strip(),
+                        'type': 'discovery'
+                    })
+                    seen_years.add(year)
+    
+    # Also extract years from source documents to ensure we don't miss any
+    for doc in source_docs:
+        doc_year = doc.metadata.get('year')
+        if doc_year and doc_year.isdigit():
+            year = int(doc_year)
+            if 1990 <= year <= 2030 and year not in seen_years:
+                # Create a brief description from the document
+                first_author = doc.metadata.get('first_author', 'Unknown author')
+                title = doc.metadata.get('title', 'research')
+                description = f"{first_author} - {title[:50]}..."
+                
+                events.append({
+                    'year': year,
+                    'description': description,
+                    'type': 'source'
+                })
+                seen_years.add(year)
+    
+    # Sort by year
+    events.sort(key=lambda x: x['year'])
+    return events
