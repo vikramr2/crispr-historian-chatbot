@@ -151,9 +151,7 @@ def display_timeline(result: Dict[str, Any]):
     """Display the evolutionary answer in a hoverable timeline format"""
     
     # Extract timeline events
-    answer_text = result.get('answer', '')
-    source_docs = result.get('source_documents', [])
-    events = extract_timeline_events(answer_text, source_docs)
+    events = result.get('timeline_events', [])
     
     if not events:
         return
@@ -228,8 +226,6 @@ def display_timeline(result: Dict[str, Any]):
             position: fixed;
             bottom: auto;
             top: -80px;
-            left: 50%;
-            transform: translateX(-50%);
             background: rgba(0,0,0,0.9);
             color: white;
             padding: 10px 14px;
@@ -247,7 +243,43 @@ def display_timeline(result: Dict[str, Any]):
             pointer-events: none;
         }
         
-        .timeline-tooltip::after {
+        /* Left-aligned tooltip for points on the left side */
+        .timeline-tooltip.tooltip-left {
+            left: -10px;
+            transform: none;
+        }
+        
+        .timeline-tooltip.tooltip-left::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 20px;
+            border: 6px solid transparent;
+            border-top-color: rgba(0,0,0,0.9);
+        }
+        
+        /* Right-aligned tooltip for points on the right side */
+        .timeline-tooltip.tooltip-right {
+            right: -10px;
+            transform: none;
+        }
+        
+        .timeline-tooltip.tooltip-right::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            right: 20px;
+            border: 6px solid transparent;
+            border-top-color: rgba(0,0,0,0.9);
+        }
+        
+        /* Center-aligned tooltip for points in the middle */
+        .timeline-tooltip.tooltip-center {
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .timeline-tooltip.tooltip-center::after {
             content: '';
             position: absolute;
             bottom: -6px;
@@ -290,6 +322,14 @@ def display_timeline(result: Dict[str, Any]):
             # Calculate position (10-90% to leave room for tooltips)
             position = 10 + ((event['year'] - min_year) / year_range) * 80
             
+            # Determine tooltip alignment based on position
+            if position <= 25:
+                tooltip_class = "tooltip-left"
+            elif position >= 75:
+                tooltip_class = "tooltip-right"
+            else:
+                tooltip_class = "tooltip-center"
+            
             # Clean and truncate description
             description = event['description'].strip()
             if len(description) > 100:
@@ -305,7 +345,7 @@ def display_timeline(result: Dict[str, Any]):
             timeline_container += f'''
             <div class="timeline-point" style="left: {position}%;">
                 <div class="timeline-year">{event['year']}</div>
-                <div class="timeline-tooltip">
+                <div class="timeline-tooltip {tooltip_class}">
                     <div class="discovery-type type-{event['type']}">{event['type'].upper()}</div>
                     <strong>{event['year']}</strong><br>
                     {description}
@@ -337,7 +377,6 @@ def display_timeline(result: Dict[str, Any]):
         for event in events:
             icon = "🔬" if event['type'] == 'discovery' else "📄"
             st.markdown(f"- **{event['year']}** {icon} {event['description']}")
-
 
 def extract_timeline_events(answer_text: str, source_docs: List[Document]) -> List[Dict[str, Any]]:
     """Extract timeline events from the evolutionary answer and source documents"""
