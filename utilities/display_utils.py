@@ -1,5 +1,4 @@
 import streamlit as st
-import re
 from typing import List, Dict, Any
 from langchain_core.documents import Document
 
@@ -155,6 +154,11 @@ def display_timeline(result: Dict[str, Any]):
     
     if not events:
         return
+    
+    # Format the event descriptions
+    for event in events:
+        if not event['description'][0] == '[':
+            event['description'] = f'[{event["author"]}, {event["year"]}] {event["description"]}'
     
     with st.expander("🕰️ Timeline of Events", expanded=True):
         st.markdown("**Timeline of Key Discoveries**")
@@ -377,77 +381,3 @@ def display_timeline(result: Dict[str, Any]):
         for event in events:
             icon = "🔬" if event['type'] == 'discovery' else "📄"
             st.markdown(f"- **{event['year']}** {icon} {event['description']}")
-
-def extract_timeline_events(answer_text: str, source_docs: List[Document]) -> List[Dict[str, Any]]:
-    """Extract timeline events from the evolutionary answer and source documents"""
-    
-    events = []
-    
-    # Regular expression to find year mentions with context
-    year_patterns = [
-        r'(?:Initially,?\s+in|In|By|During)\s+(\d{4}),?\s+([^.]*\.)',  # "In 2014, something happened."
-        r'([A-Z][a-z]+(?:\s+et\s+al\.)?)\s+\((\d{4})\)\s+([^.]*\.)',   # "Author (2014) did something."
-        r'(\d{4})[,:]?\s+([^.]*\.)',  # "2014: something happened" or "2014, something"
-    ]
-    
-    seen_years = set()
-    
-    for pattern in year_patterns:
-        matches = re.finditer(pattern, answer_text, re.IGNORECASE)
-        for match in matches:
-            groups = match.groups()
-            
-            if len(groups) == 2:  # Year and description pattern
-                year_str, description = groups
-                if year_str.isdigit():
-                    year = int(year_str)
-                    if 1990 <= year <= 2030 and year not in seen_years:
-                        events.append({
-                            'year': year,
-                            'description': description.strip(),
-                            'type': 'discovery'
-                        })
-                        seen_years.add(year)
-                        
-            elif len(groups) == 3:  # Author, year, description pattern
-                author_or_year, year_or_desc, desc_or_year = groups
-                
-                # Try to determine which is which
-                if author_or_year.isdigit():  # First group is year
-                    year = int(author_or_year)
-                    description = f"{year_or_desc} {desc_or_year}".strip()
-                elif year_or_desc.isdigit():  # Second group is year
-                    year = int(year_or_desc)
-                    description = f"{author_or_year}: {desc_or_year}".strip()
-                else:
-                    continue
-                    
-                if 1990 <= year <= 2030 and year not in seen_years:
-                    events.append({
-                        'year': year,
-                        'description': description.strip(),
-                        'type': 'discovery'
-                    })
-                    seen_years.add(year)
-    
-    # Also extract years from source documents to ensure we don't miss any
-    for doc in source_docs:
-        doc_year = doc.metadata.get('year')
-        if doc_year and doc_year.isdigit():
-            year = int(doc_year)
-            if 1990 <= year <= 2030 and year not in seen_years:
-                # Create a brief description from the document
-                first_author = doc.metadata.get('first_author', 'Unknown author')
-                title = doc.metadata.get('title', 'research')
-                description = f"{first_author} - {title[:50]}..."
-                
-                events.append({
-                    'year': year,
-                    'description': description,
-                    'type': 'source'
-                })
-                seen_years.add(year)
-    
-    # Sort by year
-    events.sort(key=lambda x: x['year'])
-    return events

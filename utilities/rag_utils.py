@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import traceback
 from typing import Any, Dict, List
 
 import streamlit as st
@@ -134,49 +135,57 @@ def create_timeline_extraction_chain(llm) -> callable:
     
     extraction_template = """You are an expert at extracting chronological events from scientific text about CRISPR technology.
 
-Your task is to identify key discoveries, developments, or milestones mentioned in the text and format them as timeline events.
+    Your task is to identify key discoveries, developments, or milestones mentioned in the text and format them as timeline events.
 
-INSTRUCTIONS:
-1. Extract events that have specific years (1990-2030)
-2. Focus on scientific discoveries, publications, developments, or breakthroughs
-3. Include the author/researcher name when mentioned
-4. Provide a concise but meaningful description of what happened
-5. Ignore vague statements or general narrative text
-6. Only include events explicitly mentioned in the text
+    INSTRUCTIONS:
+    1. Extract events that have specific years (1990-2030)
+    2. Focus on scientific discoveries, publications, developments, or breakthroughs
+    3. Include the author/researcher name when mentioned
+    4. Provide a concise but meaningful description of what happened
+    5. Ignore vague statements or general narrative text
+    6. Only include events explicitly mentioned in the text
 
-TEXT TO ANALYZE:
-{text}
+    TEXT TO ANALYZE:
+    {text}
 
-FORMAT YOUR RESPONSE AS A JSON LIST:
-[
-  {
-    "year": 2012,
-    "author": "Jinek et al.",
-    "description": "demonstrated programmable DNA cleavage using guide RNAs",
-    "confidence": "high"
-  },
-  {
-    "year": 2013,
-    "author": "Zhang",
-    "description": "adapted CRISPR-Cas9 for use in mammalian cells",
-    "confidence": "medium"
-  }
-]
+    FORMAT YOUR RESPONSE AS A JSON LIST:
+    [
+    {{
+        "year": 2012,
+        "author": "Jinek et al.",
+        "description": "demonstrated programmable DNA cleavage using guide RNAs",
+        "confidence": "high"
+    }},
+    {{
+        "year": 2013,
+        "author": "Zhang",
+        "description": "adapted CRISPR-Cas9 for use in mammalian cells",
+        "confidence": "medium"
+    }}
+    ]
 
-CONFIDENCE LEVELS:
-- "high": Author and specific discovery clearly stated
-- "medium": Year and discovery clear, author may be implied
-- "low": Year mentioned but discovery details are vague
+    CONFIDENCE LEVELS:
+    - "high": Author and specific discovery clearly stated
+    - "medium": Year and discovery clear, author may be implied
+    - "low": Year mentioned but discovery details are vague
 
-RESPONSE (JSON only, no other text):"""
+    RESPONSE (JSON only, no other text):"""
 
     extraction_prompt = ChatPromptTemplate.from_template(extraction_template)
     
     def extract_timeline_events(text: str) -> List[Dict[str, Any]]:
         """Extract timeline events from text using LLM"""
         try:
-            response = llm.invoke(extraction_prompt.format_messages(text=text))
-            events = json.loads(response.content)
+            # Escape curly braces in the input text to prevent template conflicts
+            escaped_text = text.replace('{', '{{').replace('}', '}}')
+            
+            # Invoke the LLM with the formatted prompt
+            formatted_messages = extraction_prompt.format_messages(text=escaped_text)
+            response = llm.invoke(formatted_messages)
+
+            # Attempt to clean and parse JSON
+            json_str = clean_json(response.content)
+            events = json.loads(json_str)
             
             # Validate and clean the events
             cleaned_events = []
@@ -193,33 +202,59 @@ RESPONSE (JSON only, no other text):"""
             
             return cleaned_events
             
-        except (json.JSONDecodeError, Exception) as e:  # pylint: disable=broad-exception-caught
-            # Fallback to empty list if extraction fails
-            print(f"Timeline extraction failed: {e}")
+        except json.JSONDecodeError as e:
+            # JSON parsing failed - likely malformed response from LLM
+            print(f"Timeline extraction failed - Invalid JSON response: {e}")
+            print(f"Raw response content: {response.content[:200]}...")
+            return []
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            print("\n=== UNEXPECTED ERROR ===")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error message: {e}")
+            print(f"Error args: {e.args}")
+            
+            # Full traceback
+            print("\nFull traceback:")
+            traceback.print_exc()
             return []
     
     return extract_timeline_events
+
+def clean_json(text: str) -> str:
+    """Attempt to clean and extract JSON from LLM response"""
+    try:
+        # Remove newlines and whitespace
+        text = text.replace('\n', ' ').strip()
+
+        # Find the first and last curly braces to extract JSON
+        start = text.index('[')
+        end = text.rindex(']') + 1
+
+        json_str = text[start:end]
+        return json_str
+    except ValueError:
+        return text  # Return original if not found
 
 def create_source_event_extraction_chain(llm) -> callable:
     """Create an LLM chain for extracting events from source documents"""
     
     source_template = """Extract the key contribution or discovery from this research paper.
 
-PAPER METADATA:
-Author: {author}
-Year: {year}
-Title: {title}
+    PAPER METADATA:
+    Author: {author}
+    Year: {year}
+    Title: {title}
 
-PAPER CONTENT (excerpt):
-{content}
+    PAPER CONTENT (excerpt):
+    {content}
 
-Your task: Provide a 1-2 sentence description of the main contribution or discovery from this paper.
-Focus on what was discovered, developed, or demonstrated.
+    Your task: Provide a 1-2 sentence description of the main contribution or discovery from this paper.
+    Focus on what was discovered, developed, or demonstrated.
 
-RESPONSE FORMAT:
-[author, year] 'Brief description of the main contribution/discovery'
+    RESPONSE FORMAT:
+    [author, year] 'Brief description of the main contribution/discovery'
 
-RESPONSE:"""
+    RESPONSE:"""
 
     source_prompt = ChatPromptTemplate.from_template(source_template)
     
