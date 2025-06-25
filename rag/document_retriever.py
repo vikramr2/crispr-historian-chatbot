@@ -86,15 +86,10 @@ class DocumentRetriever:
         return "\n" + "="*50 + "\n".join(context_parts)
 
     def extract_years_from_query(self, query: str) -> List[int]:
-        """Extract years from explicit temporal queries"""
+        """Extract years from explicit temporal queries, including ranges"""
         try:
-            # First try direct regex extraction from the original query
-            direct_years = []
-            year_matches = re.findall(r'\b(19|20)\d{2}\b', query)
-            for year_str in year_matches:
-                year = int(year_str)
-                if 1950 <= year <= 2030:  # Reasonable range for CRISPR research
-                    direct_years.append(year)
+            # First try direct regex extraction with range support
+            direct_years = self._extract_years_with_ranges(query)
             
             # If we found years directly, use those
             if direct_years:
@@ -107,18 +102,130 @@ class DocumentRetriever:
             years = []
             for line in year_text.split('\n'):
                 line = line.strip()
-                # Extract 4-digit years - fixed regex to capture full year
-                year_matches = re.findall(r'\b((?:19|20)\d{2})\b', line)
-                for year_str in year_matches:
-                    year = int(year_str)
-                    if 1950 <= year <= 2030:  # Reasonable range for CRISPR research
-                        years.append(year)
+                # Try range extraction on LLM output
+                llm_years = self._extract_years_with_ranges(line)
+                years.extend(llm_years)
             
-            return sorted(list(set(years)))  # Remove duplicates and sort
+            return sorted(list(set(years))) if years else []
 
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-exception-caught
             print(f"Error extracting years: {e}")
             return []
+
+    def _extract_years_with_ranges(self, text: str) -> List[int]:
+        """Extract years handling various temporal expressions"""
+        years = []
+        text_lower = text.lower()
+        
+        # Extract all 4-digit years from text
+        all_years = [int(match) for match in re.findall(r'\b((?:19|20)\d{2})\b', text) 
+                    if 1950 <= int(match) <= 2030]
+        
+        if not all_years:
+            return []
+        
+        # Pattern 1: "between YEAR1 and YEAR2" or "from YEAR1 to YEAR2"
+        between_patterns = [
+            r'between\s+(\d{4})\s+and\s+(\d{4})',
+            r'from\s+(\d{4})\s+to\s+(\d{4})',
+            r'(\d{4})\s*-\s*(\d{4})',  # 1995-2000
+            r'(\d{4})\s+through\s+(\d{4})',
+            r'(\d{4})\s+until\s+(\d{4})'
+        ]
+        
+        for pattern in between_patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                start_year, end_year = int(match[0]), int(match[1])
+                if 1950 <= start_year <= 2030 and 1950 <= end_year <= 2030:
+                    # Include all years in range
+                    years.extend(range(start_year, end_year + 1))
+                    return years  # Found range, return it
+        
+        # Pattern 2: "before YEAR" - include years from reasonable start to that year
+        before_patterns = [
+            r'before\s+(\d{4})',
+            r'prior\s+to\s+(\d{4})',
+            r'up\s+to\s+(\d{4})',
+            r'until\s+(\d{4})'
+        ]
+        
+        for pattern in before_patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                end_year = int(match)
+                if 1950 <= end_year <= 2030:
+                    # Include years from 1950 (or reasonable CRISPR start) to end_year
+                    start_year = max(1950, 1987)  # CRISPR research started ~1987
+                    years.extend(range(start_year, end_year + 1))
+                    return years
+        
+        # Pattern 3: "after YEAR" or "since YEAR" - include years from that year to reasonable end
+        after_patterns = [
+            r'after\s+(\d{4})',
+            r'since\s+(\d{4})',
+            r'from\s+(\d{4})\s+onwards?',
+            r'post[- ](\d{4})',
+            r'following\s+(\d{4})'
+        ]
+        
+        for pattern in after_patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                start_year = int(match)
+                if 1950 <= start_year <= 2030:
+                    # Include years from start_year to 2030 (or current year + few years)
+                    end_year = min(2030, 2025)  # Current reasonable end
+                    years.extend(range(start_year, end_year + 1))
+                    return years
+        
+        # Pattern 4: Decade expressions "1990s", "early 2000s", "late 1990s"
+        decade_patterns = [
+            r'early\s+(\d{4})s',    # early 2000s -> 2000-2003
+            r'late\s+(\d{4})s',     # late 1990s -> 1997-1999  
+            r'mid[- ](\d{4})s',     # mid-1990s -> 1994-1996
+            r'(\d{4})s',            # 1990s -> 1990-1999
+        ]
+        
+        for i, pattern in enumerate(decade_patterns):
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                decade_start = int(match)
+                if 1950 <= decade_start <= 2020:
+                    if i == 0:  # early
+                        years.extend(range(decade_start, decade_start + 4))
+                    elif i == 1:  # late  
+                        years.extend(range(decade_start + 7, decade_start + 10))
+                    elif i == 2:  # mid
+                        years.extend(range(decade_start + 4, decade_start + 7))
+                    else:  # full decade
+                        years.extend(range(decade_start, decade_start + 10))
+                    return years
+        
+        # Pattern 5: "around YEAR", "circa YEAR", "~YEAR" - include year ± 2
+        around_patterns = [
+            r'around\s+(\d{4})',
+            r'circa\s+(\d{4})',
+            r'~\s*(\d{4})',
+            r'approximately\s+(\d{4})',
+            r'about\s+(\d{4})'
+        ]
+        
+        for pattern in around_patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                center_year = int(match)
+                if 1950 <= center_year <= 2030:
+                    # Include center year ± 2 years
+                    years.extend(range(max(1950, center_year - 2), 
+                                    min(2030, center_year + 3)))
+                    return years
+        
+        # Pattern 6: No special temporal indicators - return exact years mentioned
+        if all_years:
+            return all_years
+        
+        return years
         
     def retrieve_with_year_filter(self, query: str, years: List[int]) -> List[Document]:
         """Retrieve documents filtered by specific years"""
