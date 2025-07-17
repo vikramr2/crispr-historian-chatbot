@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from langchain.schema import Document
 from langchain.prompts import PromptTemplate
 from langchain.prompts import ChatPromptTemplate
@@ -14,6 +14,7 @@ class DocumentRetriever:
         self.llm = llm
         self.k = k
         self.last_retrieved_docs = []
+        self.last_similarity_scores = []
 
         # Standard query prompt
         self.query_prompt = PromptTemplate(
@@ -227,7 +228,7 @@ class DocumentRetriever:
         
         return years
         
-    def retrieve_with_year_filter(self, query: str, years: List[int]) -> List[Document]:
+    def retrieve_with_year_filter(self, query: str, years: List[int]) -> Tuple[List[Document], List[float]]:
         """Retrieve documents filtered by specific years"""
         try:
             # Generate search queries
@@ -241,6 +242,7 @@ class DocumentRetriever:
             queries = queries[:3]
 
             all_docs = []
+            all_scores = []
             seen_content = set()
 
             # Search with year filtering
@@ -249,26 +251,28 @@ class DocumentRetriever:
                     # Create year filter for Pinecone
                     year_filter = {"year": {"$eq": str(year)}}
                     
-                    docs = self.vectorstore.similarity_search(
+                    # FIX: Use the correct method name for your vector store
+                    docs_with_scores = self.vectorstore.similarity_search_with_score(
                         search_query,
                         k=self.k,
                         filter=year_filter
                     )
                     
                     # Deduplicate
-                    for doc in docs:
+                    for doc, score in docs_with_scores:
                         content_hash = hash(doc.page_content[:200])
                         if content_hash not in seen_content:
                             seen_content.add(content_hash)
                             all_docs.append(doc)
+                            all_scores.append(score)
 
-            return all_docs[:self.k * 2]  # Return more docs for temporal queries
-            
+            return all_docs[:self.k * 2], all_scores[:self.k * 2]  # Return more docs for temporal queries
+
         except Exception as e:  # pylint: disable=broad-except
             print(f"Error in year-filtered retrieval: {e}")
-            return []
+            return [], []
         
-    def retrieve_for_evolutionary_story(self, query: str) -> List[Document]:
+    def retrieve_for_evolutionary_story(self, query: str) -> Tuple[List[Document], List[float]]:
         """Retrieve documents for evolutionary timeline, ensuring temporal spread"""
         try:
             # Generate search queries
@@ -282,22 +286,25 @@ class DocumentRetriever:
             queries = queries[:3]
 
             all_docs = []
+            all_scores = []
             seen_content = set()
 
             # Standard similarity search (no year filtering)
             for search_query in queries:
-                docs = self.vectorstore.similarity_search(
+                # FIX: Use the correct method name for your vector store
+                docs_with_scores = self.vectorstore.similarity_search_with_score(
                     search_query,
                     k=self.k * 2,  # Get more docs for better temporal coverage
                     filter={}
                 )
                 
                 # Deduplicate
-                for doc in docs:
+                for doc, score in docs_with_scores:
                     content_hash = hash(doc.page_content[:200])
                     if content_hash not in seen_content:
                         seen_content.add(content_hash)
                         all_docs.append(doc)
+                        all_scores.append(score)
 
             # Sort by year for evolutionary narrative
             def get_year(doc):
@@ -307,13 +314,21 @@ class DocumentRetriever:
                 except (ValueError, TypeError):
                     return 9999
 
-            sorted_docs = sorted(all_docs, key=get_year)
+            # Zip docs and scores together for sorting
+            docs_scores_pairs = list(zip(all_docs, all_scores))
+            sorted_pairs = sorted(docs_scores_pairs, key=lambda x: get_year(x[0]))
             
-            return sorted_docs[:self.k * 2]
+            # Unzip back to separate lists
+            if sorted_pairs:
+                sorted_docs, sorted_scores = zip(*sorted_pairs)
+                max_results = self.k * 2
+                return list(sorted_docs[:max_results]), list(sorted_scores[:max_results])
+            else:
+                return [], []
             
         except Exception as e:    # pylint: disable=broad-except
             print(f"Error in evolutionary retrieval: {e}")
-            return []
+            return [], []
         
     def get_relevant_documents_with_classification(self, query: str, classification: str) -> List[Document]:
         """Main retrieval method that handles different classification types"""
@@ -322,26 +337,27 @@ class DocumentRetriever:
             # Extract years and filter
             years = self.extract_years_from_query(query)
             if years:
-                docs = self.retrieve_with_year_filter(query, years)
+                docs, scores = self.retrieve_with_year_filter(query, years)
                 print(f"Temporal retrieval for years {years}: found {len(docs)} documents")
             else:
                 # Fallback to standard retrieval if no years found
-                docs = self.get_relevant_documents(query)
+                docs, scores = self.get_relevant_documents_with_scores(query)
                 print("No years extracted, falling back to standard retrieval")
                 
         elif classification == "EVOLUTIONARY":
             # Get documents for evolutionary story
-            docs = self.retrieve_for_evolutionary_story(query)
+            docs, scores = self.retrieve_for_evolutionary_story(query)
             print(f"Evolutionary retrieval: found {len(docs)} documents spanning multiple years")
             
         else:  # STANDARD
             # Use existing standard retrieval
-            docs = self.get_relevant_documents(query)
+            docs, scores = self.get_relevant_documents_with_scores(query)
             print(f"Standard retrieval: found {len(docs)} documents")
 
         # Clean and annotate
         cleaned_docs = self.clean_and_annotate_chunks(docs)
         self.last_retrieved_docs = cleaned_docs
+        self.last_similarity_scores = scores
         
         return cleaned_docs
 
@@ -375,8 +391,8 @@ class DocumentRetriever:
 
         return cleaned_docs
 
-    def get_relevant_documents(self, query: str) -> List[Document]:
-        """Retrieve and clean documents"""
+    def get_relevant_documents_with_scores(self, query: str) -> Tuple[List[Document], List[float]]:
+        """Retrieve documents with similarity scores - NEW METHOD"""
         try:
             # Generate focused queries
             query_variations = self.llm.invoke(self.query_prompt.format(question=query))
@@ -390,33 +406,47 @@ class DocumentRetriever:
             queries = queries[:3]
 
             all_docs = []
+            all_scores = []
             seen_content = set()
 
             # Search with each query
             for search_query in queries:
-                docs = self.vectorstore.similarity_search(
+                # FIX: Use the correct method name for your vector store
+                docs_with_scores = self.vectorstore.similarity_search_with_score(
                     search_query, 
                     k=self.k,
                     filter={}
                 )
 
                 # Deduplicate
-                for doc in docs:
+                for doc, score in docs_with_scores:
                     content_hash = hash(doc.page_content[:200])
                     if content_hash not in seen_content:
                         seen_content.add(content_hash)
                         all_docs.append(doc)
+                        all_scores.append(score)
 
-            # Clean and annotate
-            cleaned_docs = self.clean_and_annotate_chunks(all_docs[:self.k * 2])
-            self.last_retrieved_docs = cleaned_docs
-
-            return cleaned_docs[:self.k]
+            return all_docs[:self.k], all_scores[:self.k]
 
         except Exception as e:  # pylint: disable=broad-except
             st.error(f"Error in document retrieval: {e}")
-            self.last_retrieved_docs = []
-            return []
+            return [], []
+
+    def get_relevant_documents(self, query: str) -> Tuple[List[Document], List[float]]:
+        """Updated to return scores for backward compatibility"""
+        docs, scores = self.get_relevant_documents_with_scores(query)
+        
+        # Clean and annotate
+        cleaned_docs = self.clean_and_annotate_chunks(docs)
+        self.last_retrieved_docs = cleaned_docs
+        self.last_similarity_scores = scores
+        
+        return cleaned_docs, scores
+
+    def get_last_similarity_scores(self) -> List[float]:
+        """Get similarity scores from the last retrieval"""
+        return self.last_similarity_scores
+
 
 def create_temporal_enhanced_prompt() -> ChatPromptTemplate:
     """Create enhanced prompt that handles different temporal contexts"""

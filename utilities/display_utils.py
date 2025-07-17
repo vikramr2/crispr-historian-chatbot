@@ -22,7 +22,36 @@ def display_timing(elapsed_time: float):
     st.markdown(f'<p style="color: gray; font-size: 0.8em; margin-top: 5px;">{timing_text}</p>', 
                 unsafe_allow_html=True)
     
-def display_enhanced_response(result: Dict[str, Any], message_id: str):
+def format_similarity_score(score: float) -> str:
+    """Format similarity score for display with color coding"""
+    # Convert score to percentage and determine color
+    # Note: Higher scores typically mean lower similarity in distance metrics
+    # You may need to adjust this based on your vector store's scoring system
+    
+    if score < 0.3:  # Low similarity
+        color = "#dc3545"  # Red
+        label = "Low"
+    elif score < 0.7:  # Medium similarity
+        color = "#ffc107"  # Yellow/Orange
+        label = "Medium"
+    else:  # High similarity
+        color = "#28a745"  # Green
+        label = "High"
+
+
+    return f'<span style="color: {color}; font-weight: bold;">{score:.3f} ({label})</span>'
+
+def get_similarity_badge(score: float) -> str:
+    """Get a badge for similarity score"""
+    if score < 0.3:
+        # Low similarity
+        return "🔴"
+    elif score < 0.7:
+        return "🟡"
+    else:
+        return "🟢"  # High similarity
+
+def display_enhanced_response(result: Dict[str, Any], message_id: str, retriever=None):
     """Display response with verification information"""
 
     # Display question classification if available
@@ -46,15 +75,29 @@ def display_enhanced_response(result: Dict[str, Any], message_id: str):
             st.warning("Please review carefully.")
             st.markdown(result['verification']['verification'])
 
-    # Show sources
-    display_source_documents(result['source_documents'], message_id)
 
-def display_source_documents(docs: List[Document], message_id: str = ""):
-    """Display source documents with better formatting"""
+    # Show sources with similarity scores
+    similarity_scores = []
+    if retriever and hasattr(retriever, 'get_last_similarity_scores'):
+        similarity_scores = retriever.get_last_similarity_scores()
+    
+    display_source_documents_with_scores(result['source_documents'], similarity_scores, message_id)
+
+def display_source_documents_with_scores(docs: List[Document], similarity_scores: List[float] = None, message_id: str = ""):
+    """Display source documents with similarity scores and better formatting"""
     if not docs:
         return
 
     with st.expander(f"📚 Source Documents ({len(docs)} found)", expanded=False):
+        # Display similarity score legend
+        if similarity_scores:
+            st.markdown("""
+            <div style="background-color: #f0f2f6; padding: 8px; border-radius: 4px; margin-bottom: 15px; font-size: 0.85em;">
+                <strong>📊 Similarity Scores:</strong> 
+                🔴 Low (< 0.3) | 🟡 Medium (0.3-0.7) | 🟢 High (> 0.7)
+            </div>
+            """, unsafe_allow_html=True)
+
         for i, doc in enumerate(docs):
             source = doc.metadata.get('source', 'Unknown source')
             page = doc.metadata.get('page_num', 'Unknown page')
@@ -82,7 +125,15 @@ def display_source_documents(docs: List[Document], message_id: str = ""):
             else:
                 cite_string = f"Source {i+1} - {source} (Page {page})"
 
-            st.markdown(f"**Source {i+1}:** {cite_string}")
+            # Add similarity score to the citation if available
+            score_display = ""
+            if similarity_scores and i < len(similarity_scores):
+                score = similarity_scores[i]
+                badge = get_similarity_badge(score)
+                formatted_score = format_similarity_score(score)
+                score_display = f" | Similarity: {badge} {formatted_score}"
+
+            st.markdown(f"**Source {i+1}:** {cite_string}{score_display}", unsafe_allow_html=True)
 
             # Clean content for display (remove annotations)
             content = doc.page_content
@@ -363,7 +414,7 @@ def display_timeline(result: Dict[str, Any]):
         complete_html = css_styles + timeline_container
         
         # Display the timeline with increased height for tooltips
-        st.components.v1.html(complete_html, height=180)
+        st.components.v1.html(complete_html, height=180)    # type: ignore
         
         # Add a legend using markdown
         st.markdown("""
@@ -381,3 +432,97 @@ def display_timeline(result: Dict[str, Any]):
         for event in events:
             icon = "🔬" if event['type'] == 'discovery' else "📄"
             st.markdown(f"- **{event['year']}** {icon} {event['description']}")
+
+def display_similarity_statistics(similarity_scores: List[float]):
+    """Display statistics about similarity scores"""
+    if not similarity_scores:
+        return
+    
+    avg_score = sum(similarity_scores) / len(similarity_scores)
+    min_score = min(similarity_scores)
+    max_score = max(similarity_scores)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Average Similarity", f"{avg_score:.3f}", delta=None)
+    
+    with col2:
+        st.metric("Best Match", f"{min_score:.3f}", delta=None)
+    
+    with col3:
+        st.metric("Worst Match", f"{max_score:.3f}", delta=None)
+
+def create_similarity_chart(similarity_scores: List[float], doc_titles: List[str] = None):
+    """Create a bar chart showing similarity scores"""
+    if not similarity_scores:
+        return
+    
+    import pandas as pd
+    import plotly.express as px
+    
+    # Create DataFrame for plotting
+    if doc_titles and len(doc_titles) == len(similarity_scores):
+        labels = [f"Doc {i+1}: {title[:30]}..." if len(title) > 30 else f"Doc {i+1}: {title}" 
+                 for i, title in enumerate(doc_titles)]
+    else:
+        labels = [f"Document {i+1}" for i in range(len(similarity_scores))]
+    
+    df = pd.DataFrame({
+        'Document': labels,
+        'Similarity Score': similarity_scores,
+        'Quality': ['High' if score < 0.3 else 'Medium' if score < 0.6 else 'Low' 
+                   for score in similarity_scores]
+    })
+    
+    # Create bar chart
+    fig = px.bar(df, x='Document', y='Similarity Score', 
+                 color='Quality',
+                 color_discrete_map={'High': '#28a745', 'Medium': '#ffc107', 'Low': '#dc3545'},
+                 title="Document Similarity Scores")
+    
+    fig.update_layout(
+        xaxis_tickangle=-45,
+        height=400,
+        showlegend=True
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+def get_quality_insights(similarity_scores: List[float]) -> str:
+    """Generate insights about the quality of retrieved documents"""
+    if not similarity_scores:
+        return "No similarity scores available."
+    
+    high_quality = sum(1 for score in similarity_scores if score < 0.3)
+    medium_quality = sum(1 for score in similarity_scores if 0.3 <= score < 0.6)
+    low_quality = sum(1 for score in similarity_scores if score >= 0.6)
+    
+    total = len(similarity_scores)
+    avg_score = sum(similarity_scores) / total
+    
+    insights = []
+    
+    # Overall quality assessment
+    if avg_score < 0.3:
+        insights.append("🟢 Excellent retrieval quality - most documents are highly relevant.")
+    elif avg_score < 0.5:
+        insights.append("🟡 Good retrieval quality - documents are moderately relevant.")
+    else:
+        insights.append("🔴 Poor retrieval quality - consider refining your query.")
+    
+    # Detailed breakdown
+    if high_quality > 0:
+        insights.append(f"✅ {high_quality}/{total} documents have high similarity.")
+    if medium_quality > 0:
+        insights.append(f"⚠️ {medium_quality}/{total} documents have medium similarity.")
+    if low_quality > 0:
+        insights.append(f"❌ {low_quality}/{total} documents have low similarity.")
+    
+    # Recommendations
+    if low_quality > total // 2:
+        insights.append("💡 Tip: Try using more specific keywords or different phrasing.")
+    elif high_quality == total:
+        insights.append("💡 Perfect match! Your query terms align well with the document content.")
+    
+    return " ".join(insights)

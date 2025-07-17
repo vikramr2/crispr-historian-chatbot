@@ -60,12 +60,12 @@ def main():
         st.sidebar.info("💬 **Fresh context mode**: Each question starts a new conversation")
     else:
         st.sidebar.info("💬 **Continuous mode**: Using conversation history for context")
-    
+
     if use_enhanced_rag:
         st.sidebar.success("🧬 Using RAG with fact verification")
         
         try:
-            chain, stats, _ = initialize_enhanced_rag_chain()
+            chain, stats, retriever = initialize_enhanced_rag_chain()  # Get retriever
             
             with st.sidebar.expander("📊 Knowledge Base Stats", expanded=True):
                 st.metric("Total Documents", stats.get('total_vector_count', 'Unknown'))
@@ -74,6 +74,7 @@ def main():
         except Exception as e:  # pylint: disable=broad-except
             st.sidebar.error(f"Failed to connect: {str(e)}")
             use_enhanced_rag = False
+            retriever = None  # Set to None if failed
 
     # Model selection
     models_info = ollama.list()
@@ -101,8 +102,8 @@ def main():
         avatar = "🤖" if message["role"] == "assistant" else "😎"
         with message_container.chat_message(message["role"], avatar=avatar):
             if message["role"] == "assistant" and "result" in message:
-                # Enhanced response display
-                display_enhanced_response(message["result"], f"msg_{idx}")
+                # Pass retriever to display function
+                display_enhanced_response(message["result"], f"msg_{idx}", message.get("retriever"))
                 
                 # Display timeline if this was an evolutionary query
                 if message.get("result", {}).get('retrieval_strategy') == 'EVOLUTIONARY':
@@ -139,18 +140,21 @@ def main():
                         result = chain(prompt, conversation_history, use_conversation_context)
                         elapsed_time = time.time() - start_time
                         
-                        display_enhanced_response(result, f"current_{len(st.session_state.messages)}")
+                        # Pass retriever to display function
+                        display_enhanced_response(result, f"current_{len(st.session_state.messages)}", retriever)
 
                         if result.get('retrieval_strategy') == 'EVOLUTIONARY':
                             display_timeline(result)
 
                         display_timing(elapsed_time)
                         
+                        # Store retriever in message for later display
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": result['answer'],
                             "result": result,
-                            "timing": elapsed_time
+                            "timing": elapsed_time,
+                            "retriever": retriever  # Store retriever reference
                         })
                         
                     except Exception as e:  # pylint: disable=broad-except
@@ -171,7 +175,7 @@ def main():
                             for m in st.session_state.messages
                         ]
                     
-                    stream = client.chat.completions.create(
+                    stream = client.chat.completions.create(    # type: ignore
                         model=selected_model,
                         messages=messages_to_send,
                         stream=True,
@@ -190,4 +194,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
