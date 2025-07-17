@@ -34,6 +34,7 @@ Examples:
 - "What hypotheses did Mojica propose in 1995?" → EXPLICIT_TEMPORAL
 - "How do we know CRISPR is an adaptive immune system?" → EVOLUTIONARY  
 - "Timeline of CRISPR discoveries" → EVOLUTIONARY
+- "What research was done on CRISPR between 2010-2015?" → EXPLICIT_TEMPORAL
 - "What evidence supports CRISPR function?" → EVOLUTIONARY
 - "What is Cas9?" → STANDARD
 - "How does CRISPR work?" → STANDARD
@@ -46,6 +47,14 @@ Classification (respond with only one word - EXPLICIT_TEMPORAL, EVOLUTIONARY, or
     def classify_query(self, question: str) -> Dict[str, Any]:
         """Classify a query and return classification with reasoning"""
         try:
+            # First check if a year exists in the question
+            if any(year in question for year in map(str, range(1900, 2100))):
+                return {
+                    "classification": "EXPLICIT_TEMPORAL",
+                    "reasoning": "Contains specific year or date",
+                    "confidence": "high"
+                }
+
             # Get classification
             response = self.llm.invoke(self.classification_prompt.format(question=question))
             classification = response.content.strip().upper()
