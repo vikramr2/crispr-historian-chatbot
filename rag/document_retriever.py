@@ -24,6 +24,14 @@ class DocumentRetriever:
             If the question mentions specific researchers or authors, include their names.
             Avoid combining unrelated concepts in a single query.
             
+            IMPORTANT: For research before 2002, CRISPR was known by other terms:
+            - SRSR (Short Regularly Spaced Repeats) - used before 2002
+            - Repetitive sequences
+            - Clustered repeats
+            - Palindromic repeats
+            
+            If the question involves early CRISPR research, time periods before 2002, or early discoverers like Mojica, Ishino, or Nakata, include these historical terms in your queries.
+            
             Question: {question}
             
             Search queries (one per line):"""
